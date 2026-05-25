@@ -26,8 +26,9 @@ That lints `.sky/workflows/` in the checked-out repo against the latest `sky` re
 | Input | Default | Description |
 |-------|---------|-------------|
 | `version` | `latest` | `sky` release tag to install (e.g. `v0.5.1`). `latest` resolves to the newest published release. |
-| `scope` | `repo` | `repo` lints `.sky/workflows/` only. `all` adds the workspace and user tiers. |
-| `sarif` | `false` | When `true`, generates SARIF 2.1.0 and uploads it to the Security tab. |
+| `scope` | `repo` | `repo` lints `.sky/workflows/` only. `all` adds the workspace and user tiers. Ignored when `paths` is set. |
+| `paths` | `` | Explicit files or globs to lint (e.g. `workflows/*.sky`). Overrides `scope`. Use for repos whose `.sky` files live outside `.sky/workflows/`. |
+| `sarif` | `false` | When `true`, generates SARIF 2.1.0 and uploads it to the Security tab. SARIF + `paths` is not yet aggregated across files; use `scope` with SARIF for now. |
 
 ## Pinning a version
 
@@ -37,6 +38,16 @@ Pin the `sky` CLI for reproducible runs:
 - uses: skylence-be/sky-lint-action@v1
   with:
     version: v0.5.1
+```
+
+## Linting a non-standard layout
+
+If your `.sky` files live outside `.sky/workflows/` (for example a library repo that keeps them in `workflows/`), set `paths`:
+
+```yaml
+- uses: skylence-be/sky-lint-action@v1
+  with:
+    paths: workflows/*.sky
 ```
 
 ## SARIF upload
