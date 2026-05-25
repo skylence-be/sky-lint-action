@@ -1,0 +1,63 @@
+name: 'Skylence Lint'
+description: 'Lint .sky workflow files and annotate PRs with findings. Optionally uploads SARIF to GitHub Security tab.'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  version:
+    description: 'sky version to install (e.g. v0.5.1). Defaults to latest release.'
+    required: false
+    default: 'latest'
+  scope:
+    description: 'Lint scope: repo (only .sky/workflows/ in the checked-out repo) or all (repo + workspace + user tiers).'
+    required: false
+    default: 'repo'
+  sarif:
+    description: 'Upload SARIF 2.1.0 results to the GitHub Security tab (requires contents: write and security-events: write permissions).'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install sky
+      shell: bash
+      run: |
+        "${{ github.action_path }}/scripts/install.sh" \
+          --version "${{ inputs.version }}" \
+          --no-setup
+        echo "/usr/local/bin" >> "$GITHUB_PATH"
+
+    - name: Run sky lint
+      id: lint
+      shell: bash
+      continue-on-error: true
+      run: sky lint --format json --scope "${{ inputs.scope }}" > lint.json
+
+    - name: Annotate PR
+      if: always()
+      shell: bash
+      run: |
+        "${{ github.action_path }}/scripts/annotate.sh" lint.json
+
+    - name: Generate SARIF
+      if: ${{ inputs.sarif == 'true' && always() }}
+      shell: bash
+      run: sky lint --format sarif --scope "${{ inputs.scope }}" > lint.sarif
+
+    - name: Upload SARIF
+      if: ${{ inputs.sarif == 'true' && always() }}
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: lint.sarif
+        category: sky-lint
+
+    - name: Fail on lint errors
+      if: steps.lint.outcome == 'failure'
+      shell: bash
+      run: |
+        count=$(jq 'length' lint.json 2>/dev/null || echo 0)
+        echo "sky lint found ${count} problem(s)" >&2
+        exit 1
