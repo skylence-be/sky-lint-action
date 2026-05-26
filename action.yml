@@ -7,7 +7,7 @@ branding:
 
 inputs:
   version:
-    description: 'sky version to install (e.g. v0.5.1). Defaults to latest release.'
+    description: 'sky-workflow-lint version to install (e.g. v0.1.0). Defaults to latest release.'
     required: false
     default: 'latest'
   scope:
@@ -26,15 +26,14 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install sky
+    - name: Install sky-workflow-lint
       shell: bash
       run: |
         "${{ github.action_path }}/scripts/install.sh" \
-          --version "${{ inputs.version }}" \
-          --no-setup
+          --version "${{ inputs.version }}"
         echo "/usr/local/bin" >> "$GITHUB_PATH"
 
-    - name: Run sky lint
+    - name: Run sky-workflow-lint
       id: lint
       shell: bash
       continue-on-error: true
@@ -44,17 +43,15 @@ runs:
       run: |
         set +e
         if [ -n "$SKY_LINT_PATHS" ]; then
-          # Unquoted on purpose: let bash expand globs like workflows/*.sky.
-          sky lint --format json $SKY_LINT_PATHS > lint.raw.json
+          # Unquoted on purpose: let bash expand globs like .sky/**/*.sky.
+          paths="$SKY_LINT_PATHS"
+        elif [ "$SKY_LINT_SCOPE" = "all" ]; then
+          paths=".sky/**/*.sky"
         else
-          sky lint --format json --scope "$SKY_LINT_SCOPE" > lint.raw.json
+          paths=".sky/workflows/*.sky"
         fi
-        rc=$?
-        # Explicit-path mode emits one JSON array per file; merge into a single
-        # array so annotate.sh and the fail gate see one document. Scope mode
-        # emits a single array already; `jq -s add` is a no-op shape-wise there.
-        jq -s 'add // []' lint.raw.json > lint.json
-        exit $rc
+        sky-workflow-lint --format json $paths > lint.json
+        exit $?
 
     - name: Annotate PR
       if: always()
@@ -70,10 +67,13 @@ runs:
         SKY_LINT_SCOPE: ${{ inputs.scope }}
       run: |
         if [ -n "$SKY_LINT_PATHS" ]; then
-          sky lint --format sarif $SKY_LINT_PATHS > lint.sarif
+          paths="$SKY_LINT_PATHS"
+        elif [ "$SKY_LINT_SCOPE" = "all" ]; then
+          paths=".sky/**/*.sky"
         else
-          sky lint --format sarif --scope "$SKY_LINT_SCOPE" > lint.sarif
+          paths=".sky/workflows/*.sky"
         fi
+        sky-workflow-lint --format sarif $paths > lint.sarif
 
     - name: Upload SARIF
       if: ${{ inputs.sarif == 'true' && always() }}
@@ -87,5 +87,5 @@ runs:
       shell: bash
       run: |
         count=$(jq 'length' lint.json 2>/dev/null || echo 0)
-        echo "sky lint found ${count} problem(s)" >&2
+        echo "sky-workflow-lint found ${count} problem(s)" >&2
         exit 1
