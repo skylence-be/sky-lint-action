@@ -12,12 +12,14 @@ REPO="skylence-be/sky-workflow-lint"
 VERSION="latest"
 INSTALL_DIR="/usr/local/bin"
 VERIFY="1"
+FORCE="${FORCE:-0}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) VERSION="$2"; shift 2 ;;
     --dir) INSTALL_DIR="$2"; shift 2 ;;
     --no-verify) VERIFY="0"; shift ;;
+    --force) FORCE="1"; shift ;;
     -h|--help)
       cat <<EOF
 sky-workflow-lint installer
@@ -26,14 +28,17 @@ Flags:
   --version <tag>   Install specific tag (default: latest)
   --dir <path>      Install dir (default: /usr/local/bin)
   --no-verify       Skip checksum verification
+  --force           Install even if sky-workflow-lint is already on PATH
 EOF
       exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
 done
 
-# Skip download if sky-workflow-lint is already on PATH.
-if command -v sky-workflow-lint >/dev/null 2>&1; then
+# Skip download if sky-workflow-lint is already on PATH — unless --force.
+# CI must always pull the requested version (a persistent self-hosted runner
+# may carry a stale binary), so the action passes --force.
+if [ "$FORCE" != "1" ] && command -v sky-workflow-lint >/dev/null 2>&1; then
   echo "sky-workflow-lint already on PATH at $(command -v sky-workflow-lint); skipping install."
   exit 0
 fi

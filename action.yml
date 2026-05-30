@@ -29,9 +29,17 @@ runs:
     - name: Install sky-workflow-lint
       shell: bash
       run: |
-        "${{ github.action_path }}/scripts/install.sh" \
-          --version "${{ inputs.version }}"
-        echo "/usr/local/bin" >> "$GITHUB_PATH"
+        # Install to a job-writable dir (never /usr/local/bin, which needs sudo
+        # and fails non-interactively on self-hosted runners). --force ensures
+        # the requested version is fetched even when a persistent self-hosted
+        # runner already carries a stale binary on PATH.
+        install_dir="${RUNNER_TEMP:-/tmp}/sky-lint-bin"
+        mkdir -p "$install_dir"
+        FORCE=1 "${{ github.action_path }}/scripts/install.sh" \
+          --version "${{ inputs.version }}" \
+          --dir "$install_dir" \
+          --force
+        echo "$install_dir" >> "$GITHUB_PATH"
 
     - name: Run sky-workflow-lint
       id: lint
